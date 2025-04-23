@@ -24,8 +24,8 @@ const preguntas = [
     condicion: (datos) => datos.prevision === "Isapre"
   },
   {
-    tipo: "opciones",
-    mensaje: "¿En qué clínica te gustaría atenderte?",
+    tipo: "checkbox",
+    mensaje: "¿En qué clínicas te gustaría atenderte? (Puedes elegir hasta 3)",
     opciones: [
       "Clínica Alemana",
       "Clínica Las Condes",
@@ -35,7 +35,7 @@ const preguntas = [
       "Clínica Santa María",
       "Clínica Indisa"
     ],
-    campo: "clinica"
+    campo: "clinicas"
   },
   { tipo: "texto", mensaje: "¿Qué especialidad estás buscando?", campo: "especialidad" },
   {
@@ -93,22 +93,29 @@ function mostrarPregunta() {
   }
 
   let texto = pregunta.mensaje;
-  if (pregunta.tipo === "opciones") {
-    texto += "\n" + pregunta.opciones.map((op, i) => `${i + 1}) ${op}`).join("\n");
-  }
-
-  agregarMensaje(texto, "bot");
 
   userInput.style.display = "none";
   datePicker.style.display = "none";
 
   if (pregunta.tipo === "texto" || pregunta.tipo === "opciones") {
+    agregarMensaje(texto + (pregunta.tipo === "opciones" ? "\n" + pregunta.opciones.map((op, i) => `${i + 1}) ${op}`).join("\n") : ""), "bot");
     userInput.value = "";
     userInput.style.display = "block";
     userInput.focus();
   } else if (pregunta.tipo === "fecha") {
+    agregarMensaje(texto, "bot");
     datePicker.value = "";
     datePicker.style.display = "block";
+  } else if (pregunta.tipo === "checkbox") {
+    agregarMensaje(texto, "bot");
+    const opcionesHtml = pregunta.opciones.map((op, i) => {
+      return `<label><input type="checkbox" name="clinica" value="${op}"> ${op}</label>`;
+    }).join("<br>");
+    const wrapper = document.createElement("div");
+    wrapper.className = "message bot";
+    wrapper.innerHTML = opcionesHtml;
+    chatContainer.appendChild(wrapper);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
   }
 }
 
@@ -118,14 +125,27 @@ inputForm.addEventListener("submit", function (e) {
   let respuesta = "";
 
   if (pregunta.tipo === "fecha") {
-    respuesta = datePicker.value;
-    if (!respuesta) return;
+    if (!datePicker.value) return;
+    const partes = datePicker.value.split("-");
+    if (partes.length !== 3) return;
+    const fechaFormateada = `${partes[2]}/${partes[1]}/${partes[0]}`;
+    respuesta = fechaFormateada;
+
+    if (pregunta.campo) {
+      formData[pregunta.campo] = fechaFormateada;
+    }
+  } else if (pregunta.tipo === "checkbox") {
+    const seleccionados = Array.from(document.querySelectorAll('input[name="clinica"]:checked')).map(input => input.value);
+    if (seleccionados.length === 0 || seleccionados.length > 3) {
+      agregarMensaje("Selecciona entre 1 y 3 clínicas, por favor.", "bot");
+      return;
+    }
+    respuesta = seleccionados;
   } else {
     respuesta = userInput.value.trim();
     if (!respuesta) return;
   }
 
-  // Validar opciones numéricas
   if (pregunta.tipo === "opciones") {
     const index = parseInt(respuesta);
     if (isNaN(index) || index < 1 || index > pregunta.opciones.length) {
@@ -135,20 +155,42 @@ inputForm.addEventListener("submit", function (e) {
     respuesta = pregunta.opciones[index - 1];
   }
 
-  // Validar si corresponde
   if (pregunta.validar && !pregunta.validar(respuesta)) {
     agregarMensaje("El formato ingresado no es válido. Intenta nuevamente.", "bot");
     return;
   }
 
-  agregarMensaje(respuesta, "user");
+  if (pregunta.tipo === "checkbox") {
+    agregarMensaje(respuesta.join(", "), "user");
+  } else {
+    agregarMensaje(respuesta, "user");
+  }
 
-  // Guardar
-  if (pregunta.campo) {
+  if (pregunta.campo && pregunta.tipo !== "fecha") {
     formData[pregunta.campo] = respuesta;
   }
 
+  if (pregunta.campo === "preferenciaHora" && respuesta === "Lo antes posible") {
+    agregarMensaje("¡Gracias! Hemos recibido tu solicitud. 💙 Pronto te contactaremos con las opciones disponibles.", "bot");
+    inputForm.style.display = "none";
+    return;
+  }
+
+  if (pregunta.tipo === "final") {
+    agregarMensaje(pregunta.mensaje, "bot");
+    inputForm.style.display = "none";
+    return;
+  }
+
   step++;
+  const siguientePregunta = preguntas[step];
+
+  if (siguientePregunta?.tipo === "final") {
+    agregarMensaje(siguientePregunta.mensaje, "bot");
+    inputForm.style.display = "none";
+    return;
+  }
+
   mostrarPregunta();
 });
 
@@ -179,6 +221,21 @@ function validarRUT(rut) {
 
   return dv === dvCalc;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
 
 
   
