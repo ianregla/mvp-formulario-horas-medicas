@@ -33,7 +33,13 @@ const preguntas = [
       "Clínica UC Christus",
       "Clínica MEDS",
       "Clínica Santa María",
-      "Clínica Indisa"
+      "Clínica Indisa",
+      "Clínica Redsalud Providencia",
+      "Clínica Redsalud Vitacura",
+      "Clínica Dávila Recoleta",
+      "Clínica Dávila Vespucio",
+      "Clínica Bupa",
+      "Otra",
     ],
     campo: "clinicas"
   },
@@ -224,23 +230,3 @@ function validarRUT(rut) {
 
 
 
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-  
-  
-  
-
-
-  
