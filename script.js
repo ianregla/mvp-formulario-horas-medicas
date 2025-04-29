@@ -5,10 +5,11 @@ const datePicker = document.getElementById("date-picker");
 
 let step = 0;
 let formData = {};
+let esperandoConfirmacion = false;
 
 const preguntas = [
   { tipo: "texto", mensaje: "¡Hola! 😊 ¿Cuál es tu nombre?", campo: "nombre" },
-  { tipo: "texto", mensaje: "¿Cuál es tu RUT?", campo: "rut", validar: validarRUT },
+  { tipo: "texto", mensaje: "Perfecto, te pediré algunos datos para poder encontrar la mejor opción de agenda para ti. ¿Cuál es tu RUT?", campo: "rut", validar: validarRUT },
   { tipo: "texto", mensaje: "¿Cuál es tu correo electrónico?", campo: "correo", validar: validarEmail },
   {
     tipo: "opciones",
@@ -18,7 +19,7 @@ const preguntas = [
   },
   {
     tipo: "opciones",
-    mensaje: "¿Cuál es tu Isapre?",
+    mensaje: "Todos estos datos, son los exigidos por las clínicas para agendar 😉​. ¿Cuál es tu Isapre?",
     opciones: ["Banmédica", "Cruz Blanca", "Consalud", "Colmena", "Nueva Más Vida", "Vida Tres", "Esencial"],
     campo: "isapre",
     condicion: (datos) => datos.prevision === "Isapre"
@@ -33,7 +34,8 @@ const preguntas = [
       "Clínica UC Christus",
       "Clínica MEDS",
       "Clínica Santa María",
-      "Clínica Indisa",
+      "Clínica Indisa Providencia",
+      "Clínica Indisa Maipú",
       "Clínica Redsalud Providencia",
       "Clínica Redsalud Vitacura",
       "Clínica Dávila Recoleta",
@@ -43,10 +45,30 @@ const preguntas = [
     ],
     campo: "clinicas"
   },
-  { tipo: "texto", mensaje: "¿Qué especialidad estás buscando?", campo: "especialidad" },
   {
     tipo: "opciones",
-    mensaje: "¿Tienes un médico en mente?",
+    mensaje: "¿Qué especialidad estás buscando?",
+    opciones: [
+      "Medicina general",
+      "Ginecología",
+      "Pediatría",
+      "Traumatología",
+      "Oftalmología",
+      "Psiquiatría",
+      "Cardiología",
+      "Dermatología",
+      "Gastroenterología",
+      "Endocrinología",
+      "Neurología",
+      "Reumatología",
+      "Urología",
+      "Otorrinolaringología"
+    ],
+    campo: "especialidad"
+  },
+  {
+    tipo: "opciones",
+    mensaje: "¿Tienes un médico en mente? 👨🏻‍⚕️​",
     opciones: ["Sí", "No"],
     campo: "tieneMedico"
   },
@@ -58,13 +80,13 @@ const preguntas = [
   },
   {
     tipo: "opciones",
-    mensaje: "¿Prefieres la hora lo antes posible o en una fecha específica?",
+    mensaje: "¿Prefieres la hora lo antes posible o en una fecha específica? 🕝​",
     opciones: ["Lo antes posible", "Fecha específica"],
     campo: "preferenciaHora"
   },
   {
     tipo: "fecha",
-    mensaje: "Selecciona la fecha que prefieras:",
+    mensaje: "Selecciona la fecha que prefieras (si haces click en el calendario se despliega uno):",
     campo: "fecha",
     condicion: (datos) => datos.preferenciaHora === "Fecha específica"
   },
@@ -72,18 +94,15 @@ const preguntas = [
     tipo: "opciones",
     mensaje: "¿Prefieres horario mañana o tarde?",
     opciones: ["Mañana", "Tarde"],
-    campo: "horario"
-  },
-  {
-    tipo: "final",
-    mensaje: "¡Gracias! Hemos recibido tu solicitud. 💙 Pronto te contactaremos con las opciones disponibles."
+    campo: "horario",
+    condicion: (datos) => datos.preferenciaHora === "Fecha específica"
   }
 ];
 
 function agregarMensaje(texto, clase) {
   const msg = document.createElement("div");
   msg.className = `message ${clase}`;
-  msg.textContent = texto;
+  msg.innerHTML = texto.replace(/\n/g, "<br>"); // Usamos <br> para que los saltos de línea funcionen visualmente
   chatContainer.appendChild(msg);
   chatContainer.scrollTop = chatContainer.scrollHeight;
 }
@@ -104,7 +123,10 @@ function mostrarPregunta() {
   datePicker.style.display = "none";
 
   if (pregunta.tipo === "texto" || pregunta.tipo === "opciones") {
-    agregarMensaje(texto + (pregunta.tipo === "opciones" ? "\n" + pregunta.opciones.map((op, i) => `${i + 1}) ${op}`).join("\n") : ""), "bot");
+    if (pregunta.tipo === "opciones") {
+      texto += "<br>" + pregunta.opciones.map((op, i) => `${i + 1}) ${op}`).join("<br>");
+    }
+    agregarMensaje(texto, "bot");
     userInput.value = "";
     userInput.style.display = "block";
     userInput.focus();
@@ -130,16 +152,25 @@ inputForm.addEventListener("submit", function (e) {
   const pregunta = preguntas[step];
   let respuesta = "";
 
+  if (esperandoConfirmacion) {
+    const valor = userInput.value.trim();
+    if (valor !== "1" && valor !== "2") {
+      agregarMensaje("Por favor responde con 1) Sí o 2) No.", "bot");
+      return;
+    }
+    agregarMensaje(valor === "1" ? "Sí" : "No", "user");
+    agregarMensaje("¡Gracias por confiar en nosotros! 💙. Pronto nos contactaremos por correo para darte información de tu solicitud.", "bot");
+    inputForm.style.display = "none";
+    return;
+  }
+
   if (pregunta.tipo === "fecha") {
     if (!datePicker.value) return;
     const partes = datePicker.value.split("-");
     if (partes.length !== 3) return;
     const fechaFormateada = `${partes[2]}/${partes[1]}/${partes[0]}`;
     respuesta = fechaFormateada;
-
-    if (pregunta.campo) {
-      formData[pregunta.campo] = fechaFormateada;
-    }
+    formData[pregunta.campo] = fechaFormateada;
   } else if (pregunta.tipo === "checkbox") {
     const seleccionados = Array.from(document.querySelectorAll('input[name="clinica"]:checked')).map(input => input.value);
     if (seleccionados.length === 0 || seleccionados.length > 3) {
@@ -162,7 +193,7 @@ inputForm.addEventListener("submit", function (e) {
   }
 
   if (pregunta.validar && !pregunta.validar(respuesta)) {
-    agregarMensaje("El formato ingresado no es válido. Intenta nuevamente.", "bot");
+    agregarMensaje("El formato que ingresaste no es válido. Intenta nuevamente.", "bot");
     return;
   }
 
@@ -177,55 +208,43 @@ inputForm.addEventListener("submit", function (e) {
   }
 
   if (pregunta.campo === "preferenciaHora" && respuesta === "Lo antes posible") {
-    agregarMensaje("¡Gracias! Hemos recibido tu solicitud. 💙 Pronto te contactaremos con las opciones disponibles.", "bot");
-    inputForm.style.display = "none";
+    userInput.value = "";
+    agregarMensaje("¿Quieres que agendemos por ti?<br>1) Sí<br>2) No", "bot");
+    esperandoConfirmacion = true;
     return;
   }
 
-  if (pregunta.tipo === "final") {
-    agregarMensaje(pregunta.mensaje, "bot");
-    inputForm.style.display = "none";
+  if (pregunta.campo === "horario") {
+    userInput.value = "";
+    agregarMensaje("¿Quieres que agendemos por ti?<br>1) Sí<br>2) No", "bot");
+    esperandoConfirmacion = true;
     return;
   }
 
   step++;
-  const siguientePregunta = preguntas[step];
-
-  if (siguientePregunta?.tipo === "final") {
-    agregarMensaje(siguientePregunta.mensaje, "bot");
-    inputForm.style.display = "none";
-    return;
-  }
-
   mostrarPregunta();
 });
 
 mostrarPregunta();
 
-// ✅ VALIDACIÓN DE EMAIL
 function validarEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-// ✅ VALIDACIÓN DE RUT CHILENO
 function validarRUT(rut) {
-  rut = rut.replace(/\./g, "").replace(/-/g, "").toUpperCase();
-  if (!/^[0-9]+[0-9K]$/.test(rut)) return false;
-
-  const cuerpo = rut.slice(0, -1);
-  const dv = rut.slice(-1);
-
+  rut = rut.replace(/\./g, '').replace('-', '');
+  if (rut.length < 8 || rut.length > 9) return false;
+  let cuerpo = rut.slice(0, -1);
+  let dv = rut.slice(-1).toUpperCase();
   let suma = 0;
   let multiplo = 2;
   for (let i = cuerpo.length - 1; i >= 0; i--) {
-    suma += parseInt(cuerpo[i]) * multiplo;
+    suma += parseInt(cuerpo.charAt(i)) * multiplo;
     multiplo = multiplo < 7 ? multiplo + 1 : 2;
   }
-
-  const dvEsperado = 11 - (suma % 11);
-  const dvCalc = dvEsperado === 11 ? "0" : dvEsperado === 10 ? "K" : dvEsperado.toString();
-
-  return dv === dvCalc;
+  let dvEsperado = 11 - (suma % 11);
+  dvEsperado = dvEsperado === 11 ? '0' : dvEsperado === 10 ? 'K' : dvEsperado.toString();
+  return dv === dvEsperado;
 }
 
 
